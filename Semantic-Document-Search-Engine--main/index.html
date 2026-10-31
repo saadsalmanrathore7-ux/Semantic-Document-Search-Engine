@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local Semantic Search</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --panel: #ffffff;
+        --text: #0b1220;
+        --muted: #667085;
+        --border: rgba(15, 23, 42, 0.12);
+        --border-strong: rgba(15, 23, 42, 0.18);
+        --shadow: 0 18px 45px rgba(2, 6, 23, 0.08);
+        --shadow-soft: 0 10px 24px rgba(2, 6, 23, 0.06);
+        --accent: #2563eb;
+        --accent-2: #7c3aed;
+        --ring: rgba(37, 99, 235, 0.18);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 54px 20px 76px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 14px;
+        justify-items: center;
+        margin-bottom: 20px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: linear-gradient(
+          180deg,
+          rgba(37, 99, 235, 0.08),
+          rgba(124, 58, 237, 0.06)
+        );
+        color: rgba(15, 23, 42, 0.8);
+        font-size: 12px;
+        letter-spacing: 0.01em;
+      }
+
+      .badge dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 30% 30%,
+          var(--accent),
+          var(--accent-2)
+        );
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+      }
+
+      .topRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .actions {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .iconBtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border-radius: 12px;
+      }
+
+      .iconBtn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .srOnly {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .title {
+        text-align: center;
+        font-weight: 760;
+        font-size: 32px;
+        letter-spacing: -0.03em;
+        margin: 0;
+        line-height: 1.15;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: var(--muted);
+        margin: 0;
+        line-height: 1.5;
+        max-width: 52ch;
+      }
+
+      .subtitle code {
+        font-family: var(--mono);
+        font-size: 0.92em;
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: rgba(2, 6, 23, 0.03);
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .searchRow {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      @media (max-width: 640px) {
+        .searchRow {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      input[type="text"] {
+        flex: 1;
+        min-width: 240px;
+        padding: 13px 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        font-size: 16px;
+        outline: none;
+        background: #fff;
+        box-shadow: 0 1px 0 rgba(2, 6, 23, 0.03);
+      }
+
+      input[type="text"]:focus {
+        border-color: rgba(37, 99, 235, 0.55);
+        box-shadow: 0 0 0 6px var(--ring);
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #ffffff, #f9fafb);
+        padding: 12px 14px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        color: rgba(15, 23, 42, 0.92);
+        box-shadow: 0 1px 0 rgba(2, 6, 23, 0.03);
+      }
+
+      button.primary {
+        background: linear-gradient(180deg, #2563eb, #1d4ed8);
+        border-color: rgba(37, 99, 235, 0.9);
+        color: white;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .status {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .status .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(2, 6, 23, 0.02);
+        color: rgba(15, 23, 42, 0.7);
+      }
+
+      .results {
+        margin-top: 18px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px 14px 12px;
+        background: #fff;
+        box-shadow: var(--shadow-soft);
+      }
+
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+        margin-bottom: 10px;
+      }
+
+      .file {
+        font-weight: 720;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .score {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .chunk {
+        color: #111827;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+
+      .spinner {
+        display: none;
+        margin: 14px auto 0;
+        width: 22px;
+        height: 22px;
+        border: 3px solid rgba(15, 23, 42, 0.12);
+        border-top: 3px solid var(--accent);
+        border-radius: 50%;
+        animation: spin 0.85s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .empty {
+        color: var(--muted);
+        padding: 6px 2px;
+        line-height: 1.6;
+      }
+
+      .error {
+        margin-top: 14px;
+        color: #991b1b;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: none;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="hero">
+        <div class="badge"><dot></dot> Fully local • No API keys</div>
+        <h1 class="title">Local Semantic Document Search</h1>
+        <p class="subtitle">
+          Drop files into <code>./documents/</code>, click Re-index, then search.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="topRow">
+          <div class="actions">
+            <input
+              id="fileInput"
+              class="srOnly"
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt,.md,.html,.htm"
+            />
+            <button id="uploadBtn" class="iconBtn" title="Upload documents">
+              <span class="srOnly">Upload documents</span>
+              <!-- Upload icon (inline SVG, no external assets) -->
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M12 15V4m0 0 4 4m-4-4-4 4"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button id="reindexBtn">Re-index documents</button>
+          </div>
+        </div>
+
+        <div class="searchRow">
+          <input
+            id="query"
+            type="text"
+            placeholder="Search your documents…"
+            autocomplete="off"
+          />
+          <button id="searchBtn" class="primary">Search</button>
+        </div>
+
+        <div class="status">
+          <div id="statusText" class="pill">Loading status…</div>
+          <div id="hintText" class="pill">
+            Enter to search • Cmd/Ctrl+K to focus • .pdf .docx .txt .md .html
+          </div>
+        </div>
+
+        <div id="spinner" class="spinner" aria-label="Loading"></div>
+        <div id="errorBox" class="error"></div>
+
+        <div id="results" class="results"></div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      const statusText = $("statusText");
+      const queryEl = $("query");
+      const resultsEl = $("results");
+      const spinnerEl = $("spinner");
+      const errorBox = $("errorBox");
+      const searchBtn = $("searchBtn");
+      const reindexBtn = $("reindexBtn");
+      const uploadBtn = $("uploadBtn");
+      const fileInput = $("fileInput");
+
+      function setLoading(isLoading) {
+        spinnerEl.style.display = isLoading ? "block" : "none";
+        searchBtn.disabled = isLoading;
+        reindexBtn.disabled = isLoading;
+      }
+
+      function setError(msg) {
+        if (!msg) {
+          errorBox.style.display = "none";
+          errorBox.textContent = "";
+          return;
+        }
+        errorBox.style.display = "block";
+        const s = String(msg || "");
+        const offlineHints =
+          "Models aren’t available yet.\n\n" +
+          "Fix:\n" +
+          "1) Download these models on a network that can access Hugging Face:\n" +
+          "   - sentence-transformers/all-MiniLM-L6-v2\n" +
+          "   - cross-encoder/ms-marco-MiniLM-L-6-v2\n" +
+          "2) Copy them into semantic-search/models/ and start the server with:\n" +
+          "   EMBED_MODEL_PATH=./models/all-MiniLM-L6-v2\n" +
+          "   RERANK_MODEL_PATH=./models/ms-marco-MiniLM-L-6-v2\n" +
+          "   LOCAL_FILES_ONLY=1\n\n" +
+          "See README.md → “If model download is blocked (offline mode)”.";
+
+        if (
+          s.includes("Models not available (offline)") ||
+          s.includes("Tunnel connection failed") ||
+          s.includes("huggingface.co") ||
+          s.includes("ProxyError")
+        ) {
+          errorBox.textContent = offlineHints;
+        } else {
+          errorBox.textContent = s;
+        }
+      }
+
+      function renderResults(items) {
+        resultsEl.innerHTML = "";
+        if (!items || items.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No results.";
+          resultsEl.appendChild(empty);
+          return;
+        }
+        for (const r of items) {
+          const card = document.createElement("div");
+          card.className = "card";
+
+          const head = document.createElement("div");
+          head.className = "card-head";
+
+          const file = document.createElement("div");
+          file.className = "file";
+          file.textContent = r.source_file || "unknown";
+
+          const score = document.createElement("div");
+          score.className = "score";
+          const s = typeof r.score === "number" ? r.score : 0;
+          score.textContent = `score: ${s.toFixed(3)}`;
+
+          const chunk = document.createElement("div");
+          chunk.className = "chunk";
+          chunk.textContent = r.chunk_text || "";
+
+          head.appendChild(file);
+          head.appendChild(score);
+          card.appendChild(head);
+          card.appendChild(chunk);
+          resultsEl.appendChild(card);
+        }
+      }
+
+      async function fetchStatus() {
+        try {
+          const res = await fetch("/status");
+          const data = await readJsonSafe(res);
+          const docs = data.documents ?? 0;
+          const chunks = data.chunks ?? 0;
+          statusText.textContent = `${docs} documents • ${chunks} chunks`;
+        } catch (e) {
+          statusText.textContent = "Status unavailable";
+        }
+      }
+
+      async function readJsonSafe(res) {
+        // Some servers (or proxies) return HTML/text error pages. Avoid JSON.parse crashes.
+        const text = await res.text();
+        if (!text) return {};
+        try {
+          return JSON.parse(text);
+        } catch (_) {
+          return { detail: text };
+        }
+      }
+
+      async function doSearch() {
+        setError("");
+        const q = (queryEl.value || "").trim();
+        if (!q) return;
+
+        setLoading(true);
+        try {
+          const res = await fetch("/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: q }),
+          });
+          const data = await readJsonSafe(res);
+          if (!res.ok) {
+            throw new Error(data?.detail || "Search failed");
+          }
+          renderResults(data);
+        } catch (e) {
+          setError(String(e));
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function reindex() {
+        setError("");
+        setLoading(true);
+        try {
+          const res = await fetch("/index", { method: "POST" });
+          const data = await readJsonSafe(res);
+          if (!res.ok) {
+            throw new Error(data?.detail || "Indexing failed");
+          }
+          await fetchStatus();
+          const n = data.new_chunks_indexed ?? 0;
+          setError(n > 0 ? `Indexed ${n} new chunks.` : "No new documents to index.");
+        } catch (e) {
+          setError(String(e));
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function uploadSelectedFiles(files) {
+        setError("");
+        const list = files ? Array.from(files) : [];
+        if (list.length === 0) return;
+
+        setLoading(true);
+        try {
+          const fd = new FormData();
+          for (const f of list) fd.append("files", f);
+
+          const res = await fetch("/upload", { method: "POST", body: fd });
+          const data = await readJsonSafe(res);
+          if (!res.ok) throw new Error(data?.detail || "Upload failed");
+
+          const saved = data?.saved || [];
+          const ok = saved.filter((x) => x.saved).length;
+          const bad = saved.filter((x) => !x.saved);
+
+          if (bad.length === 0) {
+            setError(`Uploaded ${ok} file(s).`);
+          } else {
+            setError(
+              `Uploaded ${ok} file(s). Failed: ${bad
+                .map((x) => `${x.filename || "unknown"} (${x.error || "error"})`)
+                .join(", ")}`
+            );
+          }
+
+          // Index immediately for a smoother UX.
+          await reindex();
+        } catch (e) {
+          setError(String(e));
+        } finally {
+          setLoading(false);
+          fileInput.value = "";
+        }
+      }
+
+      searchBtn.addEventListener("click", doSearch);
+      reindexBtn.addEventListener("click", reindex);
+      uploadBtn.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", (e) =>
+        uploadSelectedFiles(e.target.files)
+      );
+      queryEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doSearch();
+      });
+
+      window.addEventListener("keydown", (e) => {
+        const k = (e.key || "").toLowerCase();
+        if ((e.metaKey || e.ctrlKey) && k === "k") {
+          e.preventDefault();
+          queryEl.focus();
+          queryEl.select();
+        }
+      });
+
+      // Focus search on load for a fast first interaction.
+      queryEl.focus();
+      fetchStatus();
+    </script>
+  </body>
+</html>
+
